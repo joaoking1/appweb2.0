@@ -1,0 +1,68 @@
+name: Gerar APK Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Instalar Capacitor
+        run: |
+          npm install @capacitor/core @capacitor/android
+          npm install -D @capacitor/cli
+
+      - name: Criar configuração do Capacitor
+        run: |
+          cat > capacitor.config.ts <<'EOF'
+          import type { CapacitorConfig } from '@capacitor/cli';
+
+          const config: CapacitorConfig = {
+            appId: 'com.app.meuapp',
+            appName: 'Meu App',
+            webDir: 'dist',
+          };
+
+          export default config;
+          EOF
+
+      - name: Gerar versão web
+        run: npm run build
+
+      - name: Adicionar Android
+        run: npx cap add android
+
+      - name: Sincronizar Android
+        run: npx cap sync android
+
+      - name: Gerar APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
